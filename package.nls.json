@@ -1,0 +1,14 @@
+{
+  "commands.helloWorld": "Hello World",
+  "commands.importAll": "Import All Configurations",
+  "commands.importExtensions": "Import Extensions List",
+  "commands.importSettings": "Import Settings",
+  "commands.importThemes": "Import Themes",
+  "commands.importSnippets": "Import Snippets",
+  "commands.exportAll": "Export All Configurations",
+  "commands.exportExtensions": "Export Extensions List",
+  "commands.exportSettings": "Export Settings",
+  "commands.exportThemes": "Export Themes",
+  "commands.exportSnippets": "Export Snippets",
+  "commands.configureExport": "Configure Export Options"
+}

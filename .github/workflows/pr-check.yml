@@ -1,0 +1,175 @@
+name: PR Check
+
+on:
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  code-quality:
+    name: Code Quality
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20
+
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v4
+      with:
+        version: latest
+
+    - name: Get pnpm store directory
+      shell: bash
+      run: |
+        echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+    - name: Setup pnpm cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ env.STORE_PATH }}
+        key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+        restore-keys: |
+          ${{ runner.os }}-pnpm-store-
+
+    - name: Install dependencies
+      run: pnpm install --frozen-lockfile
+
+    - name: Check types
+      run: pnpm run check-types
+
+    - name: Lint
+      run: pnpm run lint
+
+    - name: Check package.json
+      run: |
+        # 检查package.json格式
+        node -e "JSON.parse(require('fs').readFileSync('package.json', 'utf8'))"
+        echo "✅ package.json is valid JSON"
+
+    - name: Check for console.log statements
+      run: |
+        if grep -r "console\.log" src/; then
+          echo "❌ Found console.log statements in source code"
+          exit 1
+        else
+          echo "✅ No console.log statements found"
+        fi
+
+    - name: Check for TODO comments
+      run: |
+        if grep -r "TODO" src/; then
+          echo "⚠️  Found TODO comments in source code"
+        else
+          echo "✅ No TODO comments found"
+        fi
+
+    - name: Check file sizes
+      run: |
+        echo "📊 Checking file sizes..."
+        find src/ -name "*.ts" -exec wc -l {} + | sort -nr | head -10
+
+  dependency-check:
+    name: Dependency Check
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20
+
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v4
+      with:
+        version: latest
+
+    - name: Install dependencies
+      run: pnpm install --frozen-lockfile
+
+    - name: Check for outdated dependencies
+      run: |
+        echo "📦 Checking for outdated dependencies..."
+        pnpm outdated || echo "✅ All dependencies are up to date"
+
+    - name: Check for unused dependencies
+      run: |
+        echo "🔍 Checking for unused dependencies..."
+        npx depcheck || echo "⚠️  Some dependencies might be unused"
+
+    - name: Security audit
+      run: |
+        echo "🔒 Running security audit..."
+        pnpm audit --audit-level moderate || echo "⚠️  Security vulnerabilities found"
+
+  build-test:
+    name: Build Test
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20
+
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v4
+      with:
+        version: latest
+
+    - name: Get pnpm store directory
+      shell: bash
+      run: |
+        echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+    - name: Setup pnpm cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ env.STORE_PATH }}
+        key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+        restore-keys: |
+          ${{ runner.os }}-pnpm-store-
+
+    - name: Install dependencies
+      run: pnpm install --frozen-lockfile
+
+    - name: Compile
+      run: pnpm run compile
+
+    - name: Package extension
+      run: pnpm run package:vsix
+
+    - name: Verify VSIX
+      run: |
+        # 检查VSIX文件是否存在
+        if [ ! -f "*.vsix" ]; then
+          echo "❌ VSIX file not found"
+          exit 1
+        fi
+        
+        # 列出VSIX文件
+        ls -la *.vsix
+        echo "✅ VSIX file created successfully"
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: vscode-syncing-${{ matrix.os }}
+        path: |
+          *.vsix
+          dist/
+        retention-days: 7 

@@ -1,0 +1,14 @@
+{
+  "commands.helloWorld": "vscode-syncing: Hello World",
+  "commands.importAll": "vscode-syncing: 导入所有配置",
+  "commands.importExtensions": "vscode-syncing: 导入扩展列表",
+  "commands.importSettings": "vscode-syncing: 导入设置",
+  "commands.importThemes": "vscode-syncing: 导入主题",
+  "commands.importSnippets": "vscode-syncing: 导入代码片段",
+  "commands.exportAll": "vscode-syncing: 导出所有配置",
+  "commands.exportExtensions": "vscode-syncing: 导出扩展列表",
+  "commands.exportSettings": "vscode-syncing: 导出设置",
+  "commands.exportThemes": "vscode-syncing: 导出主题",
+  "commands.exportSnippets": "vscode-syncing: 导出代码片段",
+  "commands.configureExport": "vscode-syncing: 配置导出选项"
+}

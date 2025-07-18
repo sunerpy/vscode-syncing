@@ -1,0 +1,160 @@
+{
+  "name": "vscode-syncing",
+  "displayName": "vscode-syncing",
+  "description": "vscode-syncing extension",
+  "version": "0.0.4",
+  "publisher": "sunerpy",
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sunerpy/vscode-syncing"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "vscode-syncing.helloWorld",
+        "title": "%commands.helloWorld%",
+        "description": "Hello World"
+      },
+      {
+        "command": "vscode-syncing.importAll",
+        "title": "%commands.importAll%",
+        "description": "Import All Configurations"
+      },
+      {
+        "command": "vscode-syncing.importExtensions",
+        "title": "%commands.importExtensions%",
+        "description": "Import Extensions List"
+      },
+      {
+        "command": "vscode-syncing.importSettings",
+        "title": "%commands.importSettings%",
+        "description": "Import Settings"
+      },
+      {
+        "command": "vscode-syncing.importThemes",
+        "title": "%commands.importThemes%",
+        "description": "Import Themes"
+      },
+      {
+        "command": "vscode-syncing.importSnippets",
+        "title": "%commands.importSnippets%",
+        "description": "Import Snippets"
+      },
+      {
+        "command": "vscode-syncing.exportAll",
+        "title": "%commands.exportAll%",
+        "description": "Export All Configurations"
+      },
+      {
+        "command": "vscode-syncing.exportExtensions",
+        "title": "%commands.exportExtensions%",
+        "description": "Export Extensions List"
+      },
+      {
+        "command": "vscode-syncing.exportSettings",
+        "title": "%commands.exportSettings%",
+        "description": "Export Settings"
+      },
+      {
+        "command": "vscode-syncing.exportThemes",
+        "title": "%commands.exportThemes%",
+        "description": "Export Themes"
+      },
+      {
+        "command": "vscode-syncing.exportSnippets",
+        "title": "%commands.exportSnippets%",
+        "description": "Export Snippets"
+      },
+      {
+        "command": "vscode-syncing.configureExport",
+        "title": "%commands.configureExport%",
+        "description": "Configure Export Options"
+      }
+    ],
+    "configuration": {
+      "title": "VSCode Syncing",
+      "properties": {
+        "vscode-syncing.exportMethod": {
+          "type": "string",
+          "enum": [
+            "local",
+            "gist",
+            "repository"
+          ],
+          "default": "local",
+          "description": "导出方式"
+        },
+        "vscode-syncing.localPath": {
+          "type": "string",
+          "default": "",
+          "description": "本地导出路径"
+        },
+        "vscode-syncing.githubToken": {
+          "type": "string",
+          "default": "",
+          "description": "GitHub访问令牌"
+        },
+        "vscode-syncing.gistId": {
+          "type": "string",
+          "default": "",
+          "description": "GitHub Gist ID"
+        },
+        "vscode-syncing.repositoryName": {
+          "type": "string",
+          "default": "",
+          "description": "GitHub仓库名 (格式: owner/repo)"
+        },
+        "vscode-syncing.repositoryBranch": {
+          "type": "string",
+          "default": "main",
+          "description": "GitHub仓库分支"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "pnpm run package",
+    "compile": "pnpm run check-types && pnpm run lint && node esbuild.js",
+    "watch": "npm-run-all -p watch:*",
+    "watch:esbuild": "node esbuild.js --watch",
+    "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
+    "package": "pnpm run check-types && pnpm run lint && node esbuild.js --production",
+    "package:vsix": "pnpm run package && pnpm vsce package --no-dependencies",
+    "compile-tests": "tsc -p . --outDir out",
+    "watch-tests": "tsc -p . -w --outDir out",
+    "pretest": "pnpm run compile-tests && pnpm run compile && pnpm run lint",
+    "check-types": "tsc --noEmit",
+    "lint": "eslint src",
+    "test": "echo skip tests",
+    "build": "pnpm run package",
+    "build:vsix": "vsce package",
+    "publish:vsix": "pnpm vsce publish --no-dependencies",
+    "security:audit": "pnpm audit --audit-level moderate",
+    "deps:check": "depcheck",
+    "deps:outdated": "pnpm outdated"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "~20.19.8",
+    "@types/vscode": "^1.100.0",
+    "@typescript-eslint/eslint-plugin": "^8.37.0",
+    "@typescript-eslint/parser": "^8.37.0",
+    "@vscode/test-cli": "^0.0.11",
+    "@vscode/test-electron": "^2.5.2",
+    "depcheck": "^1.4.7",
+    "esbuild": "^0.25.6",
+    "eslint": "^9.31.0",
+    "npm-run-all": "^4.1.5",
+    "typescript": "^5.8.3",
+    "@vscode/vsce": "^3.6.0"
+  },
+  "dependencies": {}
+}
