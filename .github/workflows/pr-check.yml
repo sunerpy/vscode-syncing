@@ -159,13 +159,15 @@ jobs:
     - name: Verify VSIX
       run: |
         # 检查VSIX文件是否存在
-        if [ ! -f "*.vsix" ]; then
+        set -e
+        VSIX_FILE=$(ls *.vsix 2>/dev/null || true)
+        if [ -z "$VSIX_FILE" ]; then
           echo "❌ VSIX file not found"
           exit 1
         fi
         
         # 列出VSIX文件
-        ls -la *.vsix
+        ls -lh $VSIX_FILE
         echo "✅ VSIX file created successfully"
 
     - name: Upload build artifacts
