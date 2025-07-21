@@ -2,7 +2,7 @@ name: Release PR Generator
 
 on:
   push:
-    branches: [dev]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
