@@ -5,27 +5,26 @@ on:
     branches: [ main, master ]
 
 jobs:
+  get-env:
+    uses: ./.github/workflows/env.yml
+
   code-quality:
     name: Code Quality
     runs-on: ubuntu-latest
-
+    needs: get-env
     steps:
-    - name: Call env workflow
-        uses: ./.github/workflows/env.yml
-        id: env
-
     - name: Checkout
       uses: actions/checkout@v4
 
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: ${{ steps.env.outputs.node_version }}
+        node-version: ${{ needs.get-env.outputs.node_version }}
 
     - name: Setup pnpm
       uses: pnpm/action-setup@v4
       with:
-        version: ${{ steps.env.outputs.pnpm_version }}
+        version: ${{ needs.get-env.outputs.pnpm_version }}
 
     - name: Get pnpm store directory
       shell: bash
@@ -80,24 +79,20 @@ jobs:
   dependency-check:
     name: Dependency Check
     runs-on: ubuntu-latest
-
+    needs: get-env
     steps:
-    - name: Call env workflow
-        uses: ./.github/workflows/env.yml
-        id: env
-
     - name: Checkout
       uses: actions/checkout@v4
 
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: ${{ steps.env.outputs.node_version }}
+        node-version: ${{ needs.get-env.outputs.node_version }}
 
     - name: Setup pnpm
       uses: pnpm/action-setup@v4
       with:
-        version: ${{ steps.env.outputs.pnpm_version }}
+        version: ${{ needs.get-env.outputs.pnpm_version }}
 
     - name: Install dependencies
       run: pnpm install --frozen-lockfile
@@ -120,28 +115,24 @@ jobs:
   build-test:
     name: Build Test
     runs-on: ${{ matrix.os }}
-
+    needs: get-env
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
-    - name: Call env workflow
-        uses: ./.github/workflows/env.yml
-        id: env
-
     - name: Checkout
       uses: actions/checkout@v4
 
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: ${{ steps.env.outputs.node_version }}
+        node-version: ${{ needs.get-env.outputs.node_version }}
 
     - name: Setup pnpm
       uses: pnpm/action-setup@v4
       with:
-        version: ${{ steps.env.outputs.pnpm_version }}
+        version: ${{ needs.get-env.outputs.pnpm_version }}
 
     - name: Get pnpm store directory
       shell: bash

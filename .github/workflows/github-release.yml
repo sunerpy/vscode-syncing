@@ -11,30 +11,29 @@ on:
         required: false
 
 jobs:
+  get-env:
+    uses: ./.github/workflows/env.yml
+
   release:
     name: GitHub Release
     runs-on: ubuntu-latest
-
+    needs: get-env
     outputs:
       version: ${{ steps.version.outputs.version }}
 
     steps:
-      - name: Call env workflow
-        uses: ./.github/workflows/env.yml
-        id: env
-
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ steps.env.outputs.node_version }}
+          node-version: ${{ needs.get-env.outputs.node_version }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: ${{ steps.env.outputs.pnpm_version }}
+          version: ${{ needs.get-env.outputs.pnpm_version }}
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile

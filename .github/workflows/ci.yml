@@ -7,31 +7,32 @@ on:
     branches: [ main, master ]
 
 jobs:
+  get-env:
+    uses: ./.github/workflows/env.yml
+
   test:
     name: Test
     runs-on: ${{ matrix.os }}
+    needs: get-env
 
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
-    - name: Call env workflow
-        uses: ./.github/workflows/env.yml
-        id: env
 
     - name: Checkout
       uses: actions/checkout@v4
 
-    - name: Setup Node.js ${{ steps.env.outputs.node_version }}
+    - name: Setup Node.js ${{ needs.get-env.outputs.node_version }}
       uses: actions/setup-node@v4
       with:
-        node-version: ${{ steps.env.outputs.node_version }}
+        node-version: ${{ needs.get-env.outputs.node_version }}
 
     - name: Setup pnpm
       uses: pnpm/action-setup@v4
       with:
-        version: ${{ steps.env.outputs.pnpm_version }}
+        version: ${{ needs.get-env.outputs.pnpm_version }}
 
     - name: Get pnpm store directory
       shell: bash
@@ -67,7 +68,7 @@ jobs:
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: vscode-syncing-${{ matrix.os }}-${{ steps.env.outputs.node_version }}
+        name: vscode-syncing-${{ matrix.os }}-${{ needs.get-env.outputs.node_version }}
         path: |
           *.vsix
           dist/
@@ -79,9 +80,7 @@ jobs:
     if: github.event_name == 'pull_request'
 
     steps:
-    - name: Call env workflow
-        uses: ./.github/workflows/env.yml
-        id: env
+
 
     - name: Checkout
       uses: actions/checkout@v4
@@ -89,12 +88,12 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: ${{ steps.env.outputs.node_version }}
+        node-version: ${{ needs.get-env.outputs.node_version }}
 
     - name: Setup pnpm
       uses: pnpm/action-setup@v4
       with:
-        version: ${{ steps.env.outputs.pnpm_version }}
+        version: ${{ needs.get-env.outputs.pnpm_version }}
 
     - name: Install dependencies
       run: pnpm install --frozen-lockfile
