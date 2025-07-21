@@ -2,7 +2,7 @@
   "name": "vscode-syncing",
   "displayName": "vscode-syncing",
   "description": "vscode-syncing extension",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "publisher": "sunerpy",
   "engines": {
     "vscode": "^1.100.0"

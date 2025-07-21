@@ -156,17 +156,32 @@ jobs:
     - name: Package extension
       run: pnpm run package:vsix
 
-    - name: Verify VSIX
+    - name: Verify VSIX on Linux/macOS
+      if: runner.os != 'Windows'
+      shell: bash
       run: |
-        # 检查VSIX文件是否存在
-        if [ ! -f "*.vsix" ]; then
+        set -e
+        VSIX_FILE=$(ls *.vsix 2>/dev/null || true)
+        if [ -z "$VSIX_FILE" ]; then
           echo "❌ VSIX file not found"
           exit 1
         fi
-        
-        # 列出VSIX文件
-        ls -la *.vsix
-        echo "✅ VSIX file created successfully"
+
+        echo "✅ VSIX file created: $VSIX_FILE"
+        ls -lh $VSIX_FILE
+
+    - name: Verify VSIX on Windows
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        $vsix = Get-ChildItem -Filter *.vsix
+        if (-not $vsix) {
+          Write-Error "❌ VSIX file not found"
+          exit 1
+        }
+        Write-Host "✅ VSIX file created: $($vsix.Name)"
+        Get-ChildItem *.vsix | Format-List
+
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
