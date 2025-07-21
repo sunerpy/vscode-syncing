@@ -1,0 +1,48 @@
+name: Publish to Marketplace
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: "Tag name to publish"
+        required: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Call env workflow
+        uses: ./.github/workflows/env.yml
+        id: env
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ steps.env.outputs.node_version }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ steps.env.outputs.pnpm_version }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Package VSIX
+        run: pnpm run package:vsix
+
+      - name: Publish to VS Code Marketplace
+        env:
+          VSCODE_MARKETPLACE_TOKEN: ${{ secrets.VSCODE_MARKETPLACE_TOKEN }}
+        run: |
+          VSIX_FILE=$(ls *.vsix | head -n1)
+          if [ -n "$VSCODE_MARKETPLACE_TOKEN" ]; then
+            echo "Publishing $VSIX_FILE to VS Code Marketplace..."
+            npx @vscode/vsce publish --packagePath "$VSIX_FILE" -p "$VSCODE_MARKETPLACE_TOKEN"
+          else
+            echo "VSCODE_MARKETPLACE_TOKEN not set, skipping"
+          fi

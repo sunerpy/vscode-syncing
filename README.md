@@ -3,7 +3,7 @@
 English | [简体中文](./README-CN.md)
 
 [![CI](https://github.com/sunerpy/vscode-syncing/workflows/CI/badge.svg)](https://github.com/sunerpy/vscode-syncing/actions/workflows/ci.yml)
-[![PR Check](https://github.com/sunerpy/vscode-syncing/workflows/PR%20Check/badge.svg)](https://github.com/sunerpy/vscode-syncing/actions/workflows/pr-check.yml)
+[![PR Check](https://github.com/sunerpy/vscode-syncing/workflows/GitHub%20Release/badge.svg)](https://github.com/sunerpy/vscode-syncing/actions/workflows/pr-check.yml)
 [![Release](https://github.com/sunerpy/vscode-syncing/workflows/Release/badge.svg)](https://github.com/sunerpy/vscode-syncing/actions/workflows/release.yml)
 [![Nightly Build](https://github.com/sunerpy/vscode-syncing/workflows/Nightly%20Build/badge.svg)](https://github.com/sunerpy/vscode-syncing/actions/workflows/nightly.yml)
 

@@ -5,7 +5,7 @@
 
 [![CI](https://github.com/sunerpy/vscode-syncing/workflows/CI/badge.svg)](https://github.com/sunerpy/vscode-syncing/actions/workflows/ci.yml)
 [![PR Check](https://github.com/sunerpy/vscode-syncing/workflows/PR%20Check/badge.svg)](https://github.com/sunerpy/vscode-syncing/actions/workflows/pr-check.yml)
-[![Release](https://github.com/sunerpy/vscode-syncing/workflows/Release/badge.svg)](https://github.com/sunerpy/vscode-syncing/actions/workflows/release.yml)
+[![Release](https://github.com/sunerpy/vscode-syncing/workflows/GitHub%20Release/badge.svg)](https://github.com/sunerpy/vscode-syncing/actions/workflows/release.yml)
 [![Nightly Build](https://github.com/sunerpy/vscode-syncing/workflows/Nightly%20Build/badge.svg)](https://github.com/sunerpy/vscode-syncing/actions/workflows/nightly.yml)
 
 `vscode-syncing` 是一个 VS Code 插件，用于在多个设备之间同步你的设置、插件、主题和代码片段。它特别适合远程开发场景（如 code-server）。

@@ -12,18 +12,22 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    - name: Call env workflow
+        uses: ./.github/workflows/env.yml
+        id: env
+
     - name: Checkout
       uses: actions/checkout@v4
 
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: 20
+        node-version: ${{ steps.env.outputs.node_version }}
 
     - name: Setup pnpm
       uses: pnpm/action-setup@v4
       with:
-        version: latest
+        version: ${{ steps.env.outputs.pnpm_version }}
 
     - name: Get pnpm store directory
       shell: bash
@@ -67,7 +71,7 @@ jobs:
     - name: Upload nightly build
       uses: actions/upload-artifact@v4
       with:
-        name: vscode-syncing-nightly-${{ github.sha }}
+        name: vscode-syncing-nightly-${{ steps.env.outputs.node_version }}-${{ github.sha }}
         path: |
           *.vsix
           dist/
