@@ -19,7 +19,7 @@ export class DataCollector {
     constructor(private outputChannel?: vscode.OutputChannel) {
         this.vscodeEdition = getVSCodeEdition();
         this.platform = getPlatform();
-        this.isPortable = process.env.VSCODE_PORTABLE !== null;
+        this.isPortable = !!process.env.VSCODE_PORTABLE;
         this.dataDirectory = getVSCodeDataDirectory();
         this.userDirectory = path.join(this.dataDirectory, "User");
         this.extensionsDirectory = getVSCodeExtensionsDirectory();
