@@ -1,11 +1,14 @@
 name: Publish to Marketplace
 
 on:
+  push:
+    tags:
+      - "v*"
   workflow_dispatch:
     inputs:
       tag_name:
         description: "Tag name to publish"
-        required: true
+        required: false
 
 jobs:
   get-env:
@@ -30,6 +33,29 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Get tag name
+        id: tag
+        run: |
+          TAG="${{ github.event.inputs.tag_name }}"
+          if [ -z "$TAG" ]; then
+            TAG=${GITHUB_REF#refs/tags/}
+          fi
+          echo "tag_name=$TAG" >> $GITHUB_OUTPUT
+          echo "Tag: $TAG"
+
+      - name: Sync package.json version with tag
+        run: |
+          TAG=${{ steps.tag.outputs.tag_name }}
+          VERSION=$(node -p "require('./package.json').version")
+          TAG_VERSION=${TAG#v}
+          if [ "$TAG_VERSION" != "$VERSION" ]; then
+            echo "package.json version ($VERSION) 不等于 tag ($TAG_VERSION)，自动覆盖..."
+            jq ".version = \"$TAG_VERSION\"" package.json > package.json.tmp && mv package.json.tmp package.json
+            cat package.json
+          else
+            echo "package.json version ($VERSION) 与 tag ($TAG_VERSION) 一致"
+          fi
 
       - name: Package VSIX
         run: pnpm run package:vsix
