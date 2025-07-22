@@ -136,7 +136,7 @@ export function getPlatform(): Platform {
  * Gets the data directory of VSCode.
  */
 export function getVSCodeDataDirectory(): string {
-    const isPortable = process.env.VSCODE_PORTABLE !== null;
+    const isPortable = !!process.env.VSCODE_PORTABLE;
     const platform = getPlatform();
     const edition = getVSCodeEdition();
     
@@ -212,7 +212,7 @@ export function getVSCodeDataDirectory(): string {
  * Gets the extensions directory of VSCode.
  */
 export function getVSCodeExtensionsDirectory(): string {
-    const isPortable = process.env.VSCODE_PORTABLE !== null;
+    const isPortable = !!process.env.VSCODE_PORTABLE;
     const edition = getVSCodeEdition();
     
     if (isPortable) {
