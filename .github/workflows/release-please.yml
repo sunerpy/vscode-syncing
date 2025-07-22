@@ -21,13 +21,15 @@ jobs:
         id: release
         uses: googleapis/release-please-action@v4
         with:
+          release-type: node
+          package-name: vscode-syncing
           bump-minor-pre-major: true
           changelog-types: '[{"type":"feat","section":"Features","hidden":false},{"type":"fix","section":"Bug Fixes","hidden":false},{"type":"chore","section":"Chores","hidden":false},{"type":"docs","section":"Documentation","hidden":false},{"type":"refactor","section":"Refactorings","hidden":false},{"type":"test","section":"Tests","hidden":false}]'
           token: ${{ secrets.GOOGLE_RELEASE_TOKEN }}
           config-file: .release-please-config.json
-          
 
       - name: Log release result
+        if: ${{ steps.release.outputs.release_created == 'true' }}
         run: |
           echo "Release created: ${{ steps.release.outputs.release_created }}"
           echo "Tag: ${{ steps.release.outputs.tag_name }}"
