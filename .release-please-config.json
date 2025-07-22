@@ -2,6 +2,7 @@
     "release-type": "node",
     "packages": {
       ".": {
+        "package-name": "vscode-syncing",
         "changelog-path": "CHANGELOG.md"
       }
     }
