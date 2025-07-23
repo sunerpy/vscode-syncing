@@ -7,8 +7,13 @@ on:
   workflow_dispatch: # 允许手动触发
 
 jobs:
+  setup:
+    name: Setup
+    uses: ./.github/workflows/setup.yml
+
   build:
     name: Nightly Build
+    needs: setup
     uses: ./.github/workflows/build-test.yml
     with:
       test_matrix: '["ubuntu-latest"]' # 夜间构建只需要在ubuntu上测试
@@ -17,11 +22,8 @@ jobs:
   nightly:
     name: Nightly Tasks
     runs-on: ubuntu-latest
-    needs: build
+    needs: [build, setup]
     steps:
-      - name: Setup
-        uses: ./.github/workflows/setup.yml
-
       - name: Generate build info
         run: |
           echo "Build Date: $(date)" > build-info.txt

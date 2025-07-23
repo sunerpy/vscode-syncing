@@ -1,0 +1,58 @@
+name: Publish to Marketplace
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: "Tag name to publish"
+        required: false
+
+jobs:
+  setup:
+    name: Setup
+    uses: ./.github/workflows/setup.yml
+
+  publish:
+    runs-on: ubuntu-latest
+    needs: setup
+    steps:
+      - name: Get tag name
+        id: tag
+        run: |
+          TAG="${{ github.event.inputs.tag_name }}"
+          if [ -z "$TAG" ]; then
+            TAG=${GITHUB_REF#refs/tags/}
+          fi
+          echo "tag_name=$TAG" >> $GITHUB_OUTPUT
+          echo "Tag: $TAG"
+
+      - name: Sync package.json version with tag
+        run: |
+          TAG=${{ steps.tag.outputs.tag_name }}
+          VERSION=$(node -p "require('./package.json').version")
+          TAG_VERSION=${TAG#v}
+          if [ "$TAG_VERSION" != "$VERSION" ]; then
+            echo "package.json version ($VERSION) 不等于 tag ($TAG_VERSION)，自动覆盖..."
+            jq ".version = \"$TAG_VERSION\"" package.json > package.json.tmp && mv package.json.tmp package.json
+            cat package.json
+          else
+            echo "package.json version ($VERSION) 与 tag ($TAG_VERSION) 一致"
+          fi
+
+      - name: Package VSIX
+        run: pnpm run package:vsix
+
+      - name: Publish to VS Code Marketplace
+        env:
+          VSCODE_MARKETPLACE_TOKEN: ${{ secrets.VSCODE_MARKETPLACE_TOKEN }}
+        run: |
+          VSIX_FILE=$(ls *.vsix | head -n1)
+          if [ -n "$VSCODE_MARKETPLACE_TOKEN" ]; then
+            echo "Publishing $VSIX_FILE to VS Code Marketplace..."
+            npx @vscode/vsce publish --packagePath "$VSIX_FILE" -p "$VSCODE_MARKETPLACE_TOKEN"
+          else
+            echo "VSCODE_MARKETPLACE_TOKEN not set, skipping"
+          fi

@@ -5,17 +5,20 @@ on:
     branches: [main, master]
 
 jobs:
+  setup:
+    name: Setup
+    uses: ./.github/workflows/setup.yml
+
   code-quality:
     name: Code Quality
+    needs: setup
     uses: ./.github/workflows/code-quality.yml
 
   dependency-check:
     name: Dependency Check
     runs-on: ubuntu-latest
+    needs: setup
     steps:
-      - name: Setup
-        uses: ./.github/workflows/setup.yml
-
       - name: Check for outdated dependencies
         run: |
           echo "📦 Checking for outdated dependencies..."
@@ -33,6 +36,7 @@ jobs:
 
   build-test:
     name: Build Test
+    needs: setup
     uses: ./.github/workflows/build-test.yml
     with:
       test_matrix: '["ubuntu-latest", "windows-latest", "macos-latest"]'

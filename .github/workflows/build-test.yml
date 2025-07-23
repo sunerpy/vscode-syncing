@@ -3,14 +3,6 @@ name: Build and Test
 on:
   workflow_call:
     inputs:
-      node_version:
-        required: false
-        type: string
-        default: '22.13.0'
-      pnpm_version:
-        required: false
-        type: string
-        default: '9.15.0'
       test_matrix:
         required: false
         type: string
@@ -31,9 +23,6 @@ jobs:
     steps:
       - name: Setup
         uses: ./.github/workflows/setup.yml
-        with:
-          node_version: ${{ inputs.node_version }}
-          pnpm_version: ${{ inputs.pnpm_version }}
 
       - name: Compile
         run: pnpm run compile
