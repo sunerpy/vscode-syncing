@@ -1,0 +1,58 @@
+name: Code Quality
+
+on:
+  workflow_call:
+    inputs:
+      node_version:
+        required: false
+        type: string
+        default: '22.13.0'
+      pnpm_version:
+        required: false
+        type: string
+        default: '9.15.0'
+
+jobs:
+  code-quality:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup
+        uses: ./.github/workflows/setup.yml
+        with:
+          node_version: ${{ inputs.node_version }}
+          pnpm_version: ${{ inputs.pnpm_version }}
+
+      - name: Check types
+        run: pnpm run check-types
+
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Check package.json
+        run: |
+          # 检查package.json格式
+          node -e "JSON.parse(require('fs').readFileSync('package.json', 'utf8'))"
+          echo "✅ package.json is valid JSON"
+
+      - name: Check for console.log statements
+        run: |
+          if grep -r "console\.log" src/; then
+            echo "❌ Found console.log statements in source code"
+            exit 1
+          else
+            echo "✅ No console.log statements found"
+          fi
+
+      - name: Check for TODO comments
+        run: |
+          if grep -r "TODO" src/; then
+            echo "⚠️  Found TODO comments in source code"
+          else
+            echo "✅ No TODO comments found"
+          fi
+
+      - name: Check file sizes
+        run: |
+          echo "📊 Checking file sizes..."
+          find src/ -name "*.ts" -exec wc -l {} + | sort -nr | head -10
