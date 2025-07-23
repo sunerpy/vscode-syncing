@@ -8,10 +8,13 @@ jobs:
   get-env:
     uses: ./.github/workflows/env.yml
 
+  get-pnpm-cache:
+    uses: ./.github/workflows/pnpm-cache.yml
+
   code-quality:
     name: Code Quality
     runs-on: ubuntu-latest
-    needs: get-env
+    needs: [get-env, get-pnpm-cache]
     steps:
     - name: Checkout
       uses: actions/checkout@v4
@@ -26,15 +29,10 @@ jobs:
       with:
         version: ${{ needs.get-env.outputs.pnpm_version }}
 
-    - name: Get pnpm store directory
-      shell: bash
-      run: |
-        echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
-
     - name: Setup pnpm cache
       uses: actions/cache@v4
       with:
-        path: ${{ env.STORE_PATH }}
+        path: ${{ needs.get-pnpm-cache.outputs.store_path }}
         key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
         restore-keys: |
           ${{ runner.os }}-pnpm-store-
@@ -115,7 +113,7 @@ jobs:
   build-test:
     name: Build Test
     runs-on: ${{ matrix.os }}
-    needs: get-env
+    needs: [get-env, get-pnpm-cache]
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
@@ -134,15 +132,10 @@ jobs:
       with:
         version: ${{ needs.get-env.outputs.pnpm_version }}
 
-    - name: Get pnpm store directory
-      shell: bash
-      run: |
-        echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
-
     - name: Setup pnpm cache
       uses: actions/cache@v4
       with:
-        path: ${{ env.STORE_PATH }}
+        path: ${{ needs.get-pnpm-cache.outputs.store_path }}
         key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
         restore-keys: |
           ${{ runner.os }}-pnpm-store-
@@ -190,4 +183,4 @@ jobs:
         path: |
           *.vsix
           dist/
-        retention-days: 7 
+        retention-days: 7
