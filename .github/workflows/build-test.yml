@@ -12,20 +12,21 @@ on:
         value: ${{ jobs.build-test.outputs.vsix_file }}
 
 jobs:
-  setup:
-    name: Setup
-    uses: ./.github/workflows/setup.yml
-
   build-test:
     name: Build and Test
     runs-on: ${{ matrix.os }}
-    needs: setup
     strategy:
       matrix:
         os: ${{ fromJSON(inputs.test_matrix) }}
     outputs:
       vsix_file: ${{ steps.verify-vsix.outputs.vsix_file }}
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js and pnpm
+        uses: ./.github/actions/setup-node-pnpm
+
       - name: Compile
         run: pnpm run compile
 

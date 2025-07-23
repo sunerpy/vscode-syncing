@@ -7,13 +7,8 @@ on:
   workflow_dispatch: # 允许手动触发
 
 jobs:
-  setup:
-    name: Setup
-    uses: ./.github/workflows/setup.yml
-
   build:
     name: Nightly Build
-    needs: setup
     uses: ./.github/workflows/build-test.yml
     with:
       test_matrix: '["ubuntu-latest"]' # 夜间构建只需要在ubuntu上测试
@@ -22,8 +17,14 @@ jobs:
   nightly:
     name: Nightly Tasks
     runs-on: ubuntu-latest
-    needs: [build, setup]
+    needs: build
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js and pnpm
+        uses: ./.github/actions/setup-node-pnpm
+
       - name: Generate build info
         run: |
           echo "Build Date: $(date)" > build-info.txt

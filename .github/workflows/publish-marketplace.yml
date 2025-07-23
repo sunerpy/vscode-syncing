@@ -11,14 +11,15 @@ on:
         required: false
 
 jobs:
-  setup:
-    name: Setup
-    uses: ./.github/workflows/setup.yml
-
   publish:
     runs-on: ubuntu-latest
-    needs: setup
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js and pnpm
+        uses: ./.github/actions/setup-node-pnpm
+
       - name: Get tag name
         id: tag
         run: |
