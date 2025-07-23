@@ -1,10 +1,47 @@
 {
-    "release-type": "node",
-    "packages": {
-      ".": {
-        "package-name": "vscode-syncing",
-        "changelog-path": "CHANGELOG.md"
-      }
+  "release-type": "node",
+  "packages": {
+    ".": {
+      "package-name": "vscode-syncing",
+      "release-type": "node",
+      "include-component-in-tag": false,
+      "include-v-in-tag": true,
+      "bump-minor-pre-major": false,
+      "bump-patch-for-minor-pre-major": false,
+      "draft": false,
+      "changelog-types": [
+        {
+          "type": "feat",
+          "section": "Features",
+          "hidden": false
+        },
+        {
+          "type": "fix",
+          "section": "Bug Fixes",
+          "hidden": false
+        },
+        {
+          "type": "chore",
+          "section": "Chores",
+          "hidden": false
+        },
+        {
+          "type": "docs",
+          "section": "Documentation",
+          "hidden": false
+        },
+        {
+          "type": "refactor",
+          "section": "Refactorings",
+          "hidden": false
+        },
+        {
+          "type": "test",
+          "section": "Tests",
+          "hidden": false
+        }
+      ],
+      "changelog-path": "CHANGELOG.md"
     }
   }
-  
+}

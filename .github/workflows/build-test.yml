@@ -1,0 +1,67 @@
+name: Build and Test
+
+on:
+  workflow_call:
+    inputs:
+      test_matrix:
+        required: false
+        type: string
+        default: '["ubuntu-latest"]' # 默认只在ubuntu上测试以节省资源
+    outputs:
+      vsix_file:
+        value: ${{ jobs.build-test.outputs.vsix_file }}
+
+jobs:
+  build-test:
+    name: Build and Test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: ${{ fromJSON(inputs.test_matrix) }}
+    outputs:
+      vsix_file: ${{ steps.verify-vsix.outputs.vsix_file }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js and pnpm
+        uses: ./.github/actions/setup-node-pnpm
+
+      - name: Compile
+        run: pnpm run compile
+
+      - name: Run tests
+        run: pnpm run test
+
+      - name: Package extension
+        run: pnpm run package:vsix
+
+      - name: Verify VSIX on Linux/macOS
+        if: runner.os != 'Windows'
+        id: verify-vsix
+        shell: bash
+        run: |
+          set -e
+          VSIX_FILE=$(ls *.vsix 2>/dev/null || true)
+          if [ -z "$VSIX_FILE" ]; then
+            echo "❌ VSIX file not found"
+            exit 1
+          fi
+
+          echo "✅ VSIX file created: $VSIX_FILE"
+          ls -lh $VSIX_FILE
+          echo "vsix_file=$VSIX_FILE" >> $GITHUB_OUTPUT
+
+      - name: Verify VSIX on Windows
+        if: runner.os == 'Windows'
+        id: verify-vsix-win
+        shell: pwsh
+        run: |
+          $vsix = Get-ChildItem -Filter *.vsix
+          if (-not $vsix) {
+            Write-Error "❌ VSIX file not found"
+            exit 1
+          }
+          Write-Host "✅ VSIX file created: $($vsix.Name)"
+          Get-ChildItem *.vsix | Format-List
+          echo "vsix_file=$($vsix.Name)" >> $env:GITHUB_OUTPUT
