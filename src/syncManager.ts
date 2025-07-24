@@ -709,7 +709,9 @@ export class SyncManager {
       fileName,
       JSON.stringify(data, null, 2),
     );
-    this.outputChannel.appendLine(`Gist导出成功: ${gist.html_url}`);
+    this.outputChannel.appendLine(
+      `Gist导出成功: ${gist.html_url} resp: ${JSON.stringify(gist, null, 2)}`,
+    );
     return gist.html_url;
   }
 
