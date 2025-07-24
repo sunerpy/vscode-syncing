@@ -9,7 +9,7 @@ inputs:
   pnpm_version:
     description: 'pnpm version'
     required: false
-    default: '9.15.0'
+    default: '9.4.0'
 
 outputs:
   store_path:
@@ -26,8 +26,6 @@ runs:
 
     - name: Setup pnpm
       uses: pnpm/action-setup@v4
-      with:
-        version: ${{ inputs.pnpm_version }}
 
     - name: Get pnpm store directory
       id: get-store-path
