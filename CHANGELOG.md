@@ -4,6 +4,13 @@ All notable changes to the "vscode-syncing" extension will be documented in this
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.2.1](https://github.com/sunerpy/vscode-syncing/compare/v0.2.0...v0.2.1) (2025-07-24)
+
+
+### Bug Fixes
+
+* **datacollector:** 添加 jsonc-parser 依赖并优化配置解析,修复settings.json中的注释解析失败的问题 ([#18](https://github.com/sunerpy/vscode-syncing/issues/18)) ([c05a417](https://github.com/sunerpy/vscode-syncing/commit/c05a417609b6a76157f77a96792a0679d20b1357))
+
 ## [0.2.0](https://github.com/sunerpy/vscode-syncing/compare/v0.1.0...v0.2.0) (2025-07-24)
 
 
