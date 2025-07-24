@@ -9,7 +9,7 @@ inputs:
   pnpm_version:
     description: 'pnpm version'
     required: false
-    default: '9.15.0'
+    default: '9.4.0'
 
 outputs:
   store_path:
