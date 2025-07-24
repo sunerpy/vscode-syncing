@@ -45,3 +45,4 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ steps.version.outputs.version }}
           name: Release ${{ steps.version.outputs.version }}
+          allowUpdates: true
