@@ -17,6 +17,7 @@ import {
   getPlatform,
 } from './utils/vscodeEnvironment';
 import { VSCodeEdition, Platform } from './types/vscodeEdition';
+import * as jsonc from 'jsonc-parser';
 
 export class DataCollector {
   public readonly vscodeEdition: VSCodeEdition;
@@ -101,7 +102,6 @@ export class DataCollector {
   }
 
   async getSettings(): Promise<SettingsExport> {
-    const config = vscode.workspace.getConfiguration();
     const settings: SettingsExport = {};
 
     // 获取用户设置
@@ -220,7 +220,7 @@ export class DataCollector {
       const settingsPath = this.getUserSettingsPath();
       if (fs.existsSync(settingsPath)) {
         const content = fs.readFileSync(settingsPath, 'utf8');
-        return JSON.parse(content);
+        return jsonc.parse(content);
       }
     } catch (error) {
       if (this.outputChannel) {
@@ -237,7 +237,7 @@ export class DataCollector {
         const settingsPath = path.join(workspaceFolder.uri.fsPath, '.vscode', 'settings.json');
         if (fs.existsSync(settingsPath)) {
           const content = fs.readFileSync(settingsPath, 'utf8');
-          return JSON.parse(content);
+          return jsonc.parse(content);
         }
       }
     } catch (error) {
