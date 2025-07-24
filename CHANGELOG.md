@@ -4,6 +4,13 @@ All notable changes to the "vscode-syncing" extension will be documented in this
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.2.3](https://github.com/sunerpy/vscode-syncing/compare/v0.2.2...v0.2.3) (2025-07-24)
+
+
+### Bug Fixes
+
+* 移除 activationEvents 空数组 ([#23](https://github.com/sunerpy/vscode-syncing/issues/23)) ([d176746](https://github.com/sunerpy/vscode-syncing/commit/d176746a24729fa194f1fcb505d5b8ea38bb5034))
+
 ## [0.2.2](https://github.com/sunerpy/vscode-syncing/compare/v0.2.1...v0.2.2) (2025-07-24)
 
 
