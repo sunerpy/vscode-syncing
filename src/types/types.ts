@@ -24,8 +24,8 @@ export interface ExtensionsExport {
 }
 
 export interface SettingsExport {
-  user?: Record<string, unknown>;
-  workspace?: Record<string, unknown>;
+  user?: string;
+  workspace?: string;
 }
 
 export interface ThemeInfo {

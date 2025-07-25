@@ -17,7 +17,6 @@ import {
   getPlatform,
 } from './utils/vscodeEnvironment';
 import { VSCodeEdition, Platform } from './types/vscodeEdition';
-import * as jsonc from 'jsonc-parser';
 
 export class DataCollector {
   public readonly vscodeEdition: VSCodeEdition;
@@ -107,13 +106,13 @@ export class DataCollector {
     // 获取用户设置
     const userSettings = this.getUserSettings();
     if (userSettings) {
-      settings.user = userSettings;
+      (settings as any).user = userSettings;
     }
 
     // 获取工作区设置
     const workspaceSettings = this.getWorkspaceSettings();
     if (workspaceSettings) {
-      settings.workspace = workspaceSettings;
+      (settings as any).workspace = workspaceSettings;
     }
 
     return settings;
@@ -215,12 +214,11 @@ export class DataCollector {
     return snippets;
   }
 
-  private getUserSettings(): Record<string, unknown> | null {
+  private getUserSettings(): string | null {
     try {
       const settingsPath = this.getUserSettingsPath();
       if (fs.existsSync(settingsPath)) {
-        const content = fs.readFileSync(settingsPath, 'utf8');
-        return jsonc.parse(content);
+        return fs.readFileSync(settingsPath, 'utf8');
       }
     } catch (error) {
       if (this.outputChannel) {
@@ -230,14 +228,13 @@ export class DataCollector {
     return null;
   }
 
-  private getWorkspaceSettings(): Record<string, unknown> | null {
+  private getWorkspaceSettings(): string | null {
     try {
       if (vscode.workspace.workspaceFolders) {
         const workspaceFolder = vscode.workspace.workspaceFolders[0];
         const settingsPath = path.join(workspaceFolder.uri.fsPath, '.vscode', 'settings.json');
         if (fs.existsSync(settingsPath)) {
-          const content = fs.readFileSync(settingsPath, 'utf8');
-          return jsonc.parse(content);
+          return fs.readFileSync(settingsPath, 'utf8');
         }
       }
     } catch (error) {
