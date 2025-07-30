@@ -78,6 +78,8 @@ export interface ExtensionInfo {
   description: string;
   isActive: boolean;
   enabled: boolean;
+  fromExtensionsJson?: boolean; // 标识是否来自 extensions.json（禁用/不可用扩展）
+  vsixFilepath?: string; // VSIX文件路径（用于安装过程）
 }
 
 export interface ThemeInfo {

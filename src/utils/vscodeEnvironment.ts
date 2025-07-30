@@ -4,6 +4,17 @@ import * as path from 'path';
 import { VSCodeEdition, Platform, VSCodeEnvironment } from '../types/vscodeEdition';
 
 /**
+ * Common file names used by VSCode
+ */
+export const VSCODE_FILE_NAMES = {
+  EXTENSIONS_STATE: 'extensions.json',
+  USER_SETTINGS: 'settings.json',
+  KEYBINDINGS: 'keybindings.json',
+  SNIPPETS_DIR: 'snippets',
+  VSCODE_DIR: '.vscode',
+} as const;
+
+/**
  * The builtin-environments of different VSCode editions.
  */
 export const VSCODE_BUILTIN_ENVIRONMENTS: Record<VSCodeEdition, VSCodeEnvironment> = {
@@ -135,123 +146,153 @@ export function getPlatform(): Platform {
 }
 
 /**
- * Gets the data directory of VSCode.
+ * VSCode paths configuration
  */
-export function getVSCodeDataDirectory(): string {
+interface VSCodePaths {
+  dataDirectory: string;
+  extensionsDirectory: string;
+}
+
+/**
+ * Helper function to check if a path exists
+ */
+function pathExists(filePath: string): boolean {
+  try {
+    const fs = require('fs');
+    return fs.existsSync(filePath);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Gets VSCode paths based on edition and platform
+ */
+function getVSCodePaths(): VSCodePaths {
   const isPortable = !!process.env.VSCODE_PORTABLE;
   const platform = getPlatform();
   const edition = getVSCodeEdition();
+  const homeDir = os.homedir();
 
+  // Portable mode
   if (isPortable) {
-    return path.join(process.env.VSCODE_PORTABLE ?? '', 'user-data');
+    const portableRoot = process.env.VSCODE_PORTABLE ?? '';
+    return {
+      dataDirectory: path.join(portableRoot, 'user-data'),
+      extensionsDirectory: path.join(portableRoot, 'extensions'),
+    };
   }
 
-  // Special handling for Remote-SSH
+  // Remote-SSH
   if (edition === VSCodeEdition.REMOTE_SSH) {
-    const remoteSSHPaths = [
-      path.join(os.homedir(), '.vscode-server', 'data', 'User'),
-      path.join(os.homedir(), '.vscode-server', 'User'),
-    ];
+    const serverRoot = path.join(homeDir, '.vscode-server');
 
-    for (const sshPath of remoteSSHPaths) {
-      try {
-        const fs = require('fs');
-        if (fs.existsSync(path.join(sshPath, 'settings.json'))) {
-          return path.dirname(sshPath);
-        }
-      } catch {}
+    // Try to find existing data directory
+    const dataCandidates = [path.join(serverRoot, 'data'), serverRoot];
+
+    let dataDirectory = path.join(serverRoot, 'data'); // default
+    for (const candidate of dataCandidates) {
+      const userPath = path.join(candidate, 'User');
+      if (pathExists(path.join(userPath, VSCODE_FILE_NAMES.USER_SETTINGS))) {
+        dataDirectory = candidate;
+        break;
+      }
     }
 
-    // Default Remote-SSH path
-    return path.join(os.homedir(), '.vscode-server', 'data');
+    // Try to find existing extensions directory
+    const extensionCandidates = [
+      path.join(serverRoot, 'extensions'),
+      path.join(serverRoot, 'data', 'extensions'),
+    ];
+
+    let extensionsDirectory = path.join(serverRoot, 'extensions'); // default
+    for (const candidate of extensionCandidates) {
+      if (pathExists(candidate)) {
+        extensionsDirectory = candidate;
+        break;
+      }
+    }
+
+    return { dataDirectory, extensionsDirectory };
   }
 
-  // Special handling for code-server
+  // Code Server
   if (edition === VSCodeEdition.CODESERVER) {
-    // Check for common code-server paths
-    const codeServerPaths = [
-      '/config/data/User',
-      path.join(os.homedir(), '.local/share/code-server/User'),
-      path.join(os.homedir(), '.config/code-server/User'),
+    // Try to find existing data directory
+    const dataCandidates = [
+      '/config/data',
+      path.join(homeDir, '.local/share/code-server'),
+      path.join(homeDir, '.config/code-server'),
     ];
 
-    for (const serverPath of codeServerPaths) {
-      try {
-        const fs = require('fs');
-        if (fs.existsSync(path.join(serverPath, 'settings.json'))) {
-          return path.dirname(serverPath);
-        }
-      } catch {}
+    let dataDirectory = '/config/data'; // default
+    for (const candidate of dataCandidates) {
+      const userPath = path.join(candidate, 'User');
+      if (pathExists(path.join(userPath, VSCODE_FILE_NAMES.USER_SETTINGS))) {
+        dataDirectory = candidate;
+        break;
+      }
     }
 
-    // Default code-server path
-    return '/config/data';
+    // Try to find existing extensions directory
+    const extensionCandidates = [
+      '/config/extensions',
+      path.join(homeDir, '.local/share/code-server/extensions'),
+      path.join(homeDir, '.config/code-server/extensions'),
+    ];
+
+    let extensionsDirectory = '/config/extensions'; // default
+    for (const candidate of extensionCandidates) {
+      if (pathExists(candidate)) {
+        extensionsDirectory = candidate;
+        break;
+      }
+    }
+
+    return { dataDirectory, extensionsDirectory };
   }
 
-  const { dataDirectoryName } = getVSCodeBuiltinEnvironment();
+  // Standard VSCode editions
+  const { dataDirectoryName, extensionsDirectoryName } = getVSCodeBuiltinEnvironment();
 
+  let dataDirectory: string;
   switch (platform) {
     case Platform.WINDOWS:
-      return path.join(process.env.APPDATA ?? '', dataDirectoryName);
+      dataDirectory = path.join(process.env.APPDATA ?? '', dataDirectoryName);
+      break;
     case Platform.MACINTOSH:
-      return path.join(os.homedir(), 'Library', 'Application Support', dataDirectoryName);
+      dataDirectory = path.join(homeDir, 'Library', 'Application Support', dataDirectoryName);
+      break;
     case Platform.LINUX:
     default:
-      return path.join(os.homedir(), '.config', dataDirectoryName);
+      dataDirectory = path.join(homeDir, '.config', dataDirectoryName);
+      break;
   }
+
+  const extensionsDirectory = path.join(homeDir, extensionsDirectoryName, 'extensions');
+
+  return { dataDirectory, extensionsDirectory };
+}
+
+/**
+ * Gets the data directory of VSCode.
+ */
+export function getVSCodeDataDirectory(): string {
+  return getVSCodePaths().dataDirectory;
 }
 
 /**
  * Gets the extensions directory of VSCode.
  */
 export function getVSCodeExtensionsDirectory(): string {
-  const isPortable = !!process.env.VSCODE_PORTABLE;
-  const edition = getVSCodeEdition();
+  return getVSCodePaths().extensionsDirectory;
+}
 
-  if (isPortable) {
-    return path.join(process.env.VSCODE_PORTABLE ?? '', 'extensions');
-  }
-
-  // Special handling for Remote-SSH
-  if (edition === VSCodeEdition.REMOTE_SSH) {
-    const remoteSSHExtPaths = [
-      path.join(os.homedir(), '.vscode-server', 'extensions'),
-      path.join(os.homedir(), '.vscode-server', 'data', 'extensions'),
-    ];
-
-    for (const extPath of remoteSSHExtPaths) {
-      try {
-        const fs = require('fs');
-        if (fs.existsSync(extPath)) {
-          return extPath;
-        }
-      } catch {}
-    }
-
-    // Default Remote-SSH extensions path
-    return path.join(os.homedir(), '.vscode-server', 'extensions');
-  }
-
-  // Special handling for code-server
-  if (edition === VSCodeEdition.CODESERVER) {
-    const codeServerExtPaths = [
-      '/config/extensions',
-      path.join(os.homedir(), '.local/share/code-server/extensions'),
-      path.join(os.homedir(), '.config/code-server/extensions'),
-    ];
-
-    for (const extPath of codeServerExtPaths) {
-      try {
-        const fs = require('fs');
-        if (fs.existsSync(extPath)) {
-          return extPath;
-        }
-      } catch {}
-    }
-
-    return '/config/extensions';
-  }
-
-  const { extensionsDirectoryName } = getVSCodeBuiltinEnvironment();
-  return path.join(os.homedir(), extensionsDirectoryName, 'extensions');
+/**
+ * Gets the extensions state file path (extensions.json) for VSCode.
+ * This file contains information about disabled extensions.
+ */
+export function getVSCodeExtensionsStateFilePath(): string {
+  const extensionsDirectory = getVSCodeExtensionsDirectory();
+  return path.join(extensionsDirectory, VSCODE_FILE_NAMES.EXTENSIONS_STATE);
 }

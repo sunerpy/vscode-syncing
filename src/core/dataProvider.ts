@@ -17,8 +17,11 @@ import {
   getVSCodeEdition,
   getVSCodeDataDirectory,
   getVSCodeExtensionsDirectory,
+  getVSCodeExtensionsStateFilePath,
   getPlatform,
+  VSCODE_FILE_NAMES,
 } from '../utils/vscodeEnvironment';
+import { isExtensionIgnored } from '../types/constants';
 import { VSCodeEdition, Platform } from '../types/vscodeEdition';
 
 export class DataProvider implements IDataProvider {
@@ -38,8 +41,8 @@ export class DataProvider implements IDataProvider {
     this.dataDirectory = getVSCodeDataDirectory();
     this.userDirectory = path.join(this.dataDirectory, 'User');
     this.extensionsDirectory = getVSCodeExtensionsDirectory();
-    this.userSettingsPath = path.join(this.userDirectory, 'settings.json');
-    this.userSnippetsPath = path.join(this.userDirectory, 'snippets');
+    this.userSettingsPath = path.join(this.userDirectory, VSCODE_FILE_NAMES.USER_SETTINGS);
+    this.userSnippetsPath = path.join(this.userDirectory, VSCODE_FILE_NAMES.SNIPPETS_DIR);
 
     this.logEnvironmentInfo();
   }
@@ -48,36 +51,194 @@ export class DataProvider implements IDataProvider {
     try {
       logger.info('开始收集扩展信息');
 
-      // 获取禁用扩展列表
-      const userSettings = this.getUserSettings();
-      let disabledList: string[] = [];
+      // 获取禁用扩展列表 - 使用多种方法确保准确性
+      const config = vscode.workspace.getConfiguration();
+      const configDisabledList = config.get<string[]>('extensions.disabled', []);
 
-      if (userSettings) {
-        try {
-          const settings = JSON.parse(userSettings);
-          if (settings['extensions.disabled'] && Array.isArray(settings['extensions.disabled'])) {
-            disabledList = settings['extensions.disabled'];
-          }
-        } catch (error) {
-          logger.warn('解析用户设置失败，无法获取禁用扩展列表');
+      // 尝试从扩展状态文件中获取更详细的信息
+      const extensionStateInfo = await this.getExtensionStateInfo();
+
+      // 读取 extensions.json 文件进行对比分析
+      const extensionsJsonData = await this.getExtensionsJsonData();
+
+      logger.info(
+        `从配置中发现 ${configDisabledList.length} 个禁用的扩展: ${configDisabledList.join(', ')}`,
+      );
+      if (extensionStateInfo.disabledExtensions.length > 0) {
+        logger.info(
+          `从状态文件中发现 ${extensionStateInfo.disabledExtensions.length} 个禁用的扩展: ${extensionStateInfo.disabledExtensions.join(', ')}`,
+        );
+      }
+      logger.info(`从 extensions.json 中发现 ${extensionsJsonData.length} 个扩展`);
+
+      // 获取所有扩展（包括内置扩展）
+      const allExtensions = vscode.extensions.all;
+      const userInstalledExtensions = allExtensions.filter(
+        (ext) => !ext.packageJSON.isBuiltin && !isExtensionIgnored(ext.id),
+      );
+      const builtinExtensions = allExtensions.filter(
+        (ext) => ext.packageJSON.isBuiltin && !isExtensionIgnored(ext.id),
+      );
+
+      logger.info(`VSCode API 检测到总计 ${allExtensions.length} 个扩展:`);
+      logger.info(`  - 用户安装的扩展: ${userInstalledExtensions.length} 个`);
+      logger.info(`  - 内置扩展: ${builtinExtensions.length} 个`);
+
+      // 列举一些内置扩展供用户排查
+      logger.info(`内置扩展示例 (前10个):`);
+      builtinExtensions.slice(0, 10).forEach((ext) => {
+        logger.info(`  - ${ext.id} (${ext.packageJSON.displayName || ext.packageJSON.name})`);
+      });
+
+      // 从文件系统获取扩展目录列表，用于比较和发现差异
+      const fileSystemExtensionData = await this.getExtensionDataFromFileSystem();
+      logger.info(`文件系统检测到 ${fileSystemExtensionData.length} 个扩展目录`);
+
+      // 对比 extensions.json 和 API 获取到的状态（大小写不敏感）
+      const filteredExtensionsJsonData = extensionsJsonData.filter(
+        (ext) => !isExtensionIgnored(ext.identifier.id),
+      );
+
+      const extensionsJsonIds = new Set(
+        filteredExtensionsJsonData.map((ext) => ext.identifier.id.toLowerCase()),
+      );
+      const apiExtensionIds = new Set(userInstalledExtensions.map((ext) => ext.id.toLowerCase()));
+
+      const onlyInExtensionsJson = filteredExtensionsJsonData.filter(
+        (ext) => !apiExtensionIds.has(ext.identifier.id.toLowerCase()),
+      );
+      const onlyInApi = userInstalledExtensions.filter(
+        (ext) => !extensionsJsonIds.has(ext.id.toLowerCase()),
+      );
+
+      logger.info(`=== extensions.json 与 API 对比分析 ===`);
+      if (onlyInExtensionsJson.length > 0) {
+        logger.info(`仅在 extensions.json 中发现的扩展 (${onlyInExtensionsJson.length} 个):`);
+        onlyInExtensionsJson.slice(0, 10).forEach((ext) => {
+          logger.info(`  - ${ext.identifier.id} (版本: ${ext.version})`);
+        });
+        if (onlyInExtensionsJson.length > 10) {
+          logger.info(`  ... 还有 ${onlyInExtensionsJson.length - 10} 个扩展`);
         }
       }
 
-      const extensions = vscode.extensions.all
-        .filter((ext) => !ext.packageJSON.isBuiltin)
-        .map(
-          (ext): ExtensionInfo => ({
-            id: ext.id,
-            name: ext.packageJSON.displayName || ext.packageJSON.name,
-            version: ext.packageJSON.version,
-            publisher: ext.packageJSON.publisher,
-            description: ext.packageJSON.description || '',
-            isActive: ext.isActive,
-            enabled: !disabledList.includes(ext.id),
-          }),
-        );
+      if (onlyInApi.length > 0) {
+        logger.info(`仅在 API 中发现的扩展 (${onlyInApi.length} 个):`);
+        onlyInApi.slice(0, 10).forEach((ext) => {
+          logger.info(`  - ${ext.id} (${ext.packageJSON.displayName || ext.packageJSON.name})`);
+        });
+        if (onlyInApi.length > 10) {
+          logger.info(`  ... 还有 ${onlyInApi.length - 10} 个扩展`);
+        }
+      }
 
-      logger.info(`收集到 ${extensions.length} 个扩展`);
+      // 比较 API 和文件系统的差异（只比较用户安装的扩展，大小写不敏感）
+      const fileSystemExtensionIds = new Set(
+        fileSystemExtensionData.map((item: { id: string; directory: string }) =>
+          item.id.toLowerCase(),
+        ),
+      );
+
+      const onlyInApiVsFileSystem = [...apiExtensionIds].filter(
+        (id) => !fileSystemExtensionIds.has(id),
+      );
+      const onlyInFileSystem = fileSystemExtensionData.filter(
+        (item: { id: string; directory: string }) => !apiExtensionIds.has(item.id.toLowerCase()),
+      );
+
+      logger.info(`=== API 与文件系统对比分析 ===`);
+      if (onlyInApiVsFileSystem.length > 0) {
+        logger.info(`仅在 API 中发现的扩展 (${onlyInApiVsFileSystem.length} 个):`);
+        onlyInApiVsFileSystem.slice(0, 10).forEach((id) => logger.info(`  - ${id}`));
+        if (onlyInApiVsFileSystem.length > 10) {
+          logger.info(`  ... 还有 ${onlyInApiVsFileSystem.length - 10} 个扩展`);
+        }
+      }
+      if (onlyInFileSystem.length > 0) {
+        logger.info(`仅在文件系统中发现的扩展 (${onlyInFileSystem.length} 个):`);
+        onlyInFileSystem
+          .slice(0, 10)
+          .forEach((item: { id: string; directory: string }) =>
+            logger.info(`  - ${item.id} (目录: ${item.directory})`),
+          );
+        if (onlyInFileSystem.length > 10) {
+          logger.info(`  ... 还有 ${onlyInFileSystem.length - 10} 个扩展`);
+        }
+      }
+
+      // 获取实验性功能配置
+      const syncConfig = vscode.workspace.getConfiguration('vscode-syncing');
+      const syncDisabledExtensions = syncConfig.get<boolean>('syncDisabledExtensions', false);
+
+      logger.info(`实验性功能 - 同步禁用扩展: ${syncDisabledExtensions ? '启用' : '禁用'}`);
+
+      // 使用用户安装的扩展作为基础结果
+      let extensions = userInstalledExtensions.map((ext): ExtensionInfo => {
+        // 使用多种方法判断扩展是否启用
+        const isInConfigDisabledList = configDisabledList.includes(ext.id);
+        const isInStateDisabledList = extensionStateInfo.disabledExtensions.includes(ext.id);
+
+        let enabled = !isInConfigDisabledList && !isInStateDisabledList;
+
+        return {
+          id: ext.id,
+          name: ext.packageJSON.displayName || ext.packageJSON.name,
+          version: ext.packageJSON.version,
+          publisher: ext.packageJSON.publisher,
+          description: ext.packageJSON.description || '',
+          isActive: ext.isActive,
+          enabled: enabled,
+          fromExtensionsJson: false,
+        };
+      });
+
+      // 实验性功能：处理禁用/不可用扩展
+      if (syncDisabledExtensions) {
+        logger.info('启用实验性功能：处理禁用/不可用扩展');
+
+        // 如果 extensions.json 不存在或为空，以 API 为准
+        if (extensionsJsonData.length === 0) {
+          logger.info('extensions.json 不存在或为空，以 API 结果为准');
+        }
+        // 如果 extensions.json 中的扩展数量大于 API 获取的扩展数量
+        else if (extensionsJsonData.length > userInstalledExtensions.length) {
+          logger.info(
+            `extensions.json 中有更多扩展 (${extensionsJsonData.length} vs ${userInstalledExtensions.length})，处理禁用/不可用扩展`,
+          );
+
+          // 找出仅在 extensions.json 中存在的扩展（禁用/不可用扩展）
+          const disabledExtensions = onlyInExtensionsJson.map((ext): ExtensionInfo => {
+            return {
+              id: ext.identifier.id,
+              name: ext.displayName || ext.identifier.id.split('.').pop() || ext.identifier.id,
+              version: ext.version || '未知',
+              publisher: ext.identifier.id.split('.')[0] || '未知',
+              description: '来自 extensions.json 的禁用/不可用扩展',
+              isActive: false,
+              enabled: false, // 标记为禁用
+              fromExtensionsJson: true, // 标识来源
+            };
+          });
+
+          logger.info(`添加 ${disabledExtensions.length} 个来自 extensions.json 的禁用/不可用扩展`);
+          extensions = extensions.concat(disabledExtensions);
+        }
+      } else {
+        logger.info('实验性功能未启用，跳过禁用/不可用扩展的处理');
+      }
+
+      // 按扩展名排序
+      extensions.sort((a, b) => a.name.localeCompare(b.name));
+
+      const enabledCount = extensions.filter((e) => e.enabled).length;
+      const disabledCount = extensions.filter((e) => !e.enabled).length;
+      const fromExtensionsJsonCount = extensions.filter((e) => e.fromExtensionsJson).length;
+
+      logger.info(`收集到 ${extensions.length} 个扩展:`);
+      logger.info(`  - 启用: ${enabledCount} 个, 禁用: ${disabledCount} 个`);
+      if (fromExtensionsJsonCount > 0) {
+        logger.info(`  - 来自 extensions.json: ${fromExtensionsJsonCount} 个`);
+      }
 
       return {
         count: extensions.length,
@@ -97,25 +258,21 @@ export class DataProvider implements IDataProvider {
         timestamp: new Date().toISOString(),
       };
 
-      // 获取用户设置 - 直接保存原始内容，不进行JSON解析
-      const userSettings = this.getUserSettings();
+      // 读取用户设置
+      const userSettings = await this.readUserSettings();
       if (userSettings) {
-        // 直接保存原始字符串内容，保留注释
         settings.userRaw = userSettings;
-        logger.info('用户设置收集完成');
       }
 
-      // 获取工作区设置 - 直接保存原始内容，不进行JSON解析
-      const workspaceSettings = this.getWorkspaceSettings();
+      // 读取工作区设置
+      const workspaceSettings = await this.readWorkspaceSettings();
       if (workspaceSettings) {
-        // 直接保存原始字符串内容，保留注释
         settings.workspaceRaw = workspaceSettings;
-        logger.info('工作区设置收集完成');
       }
 
       return settings;
     } catch (error) {
-      throw ErrorHandler.createError(ErrorType.FILE_SYSTEM, '获取设置信息失败', error as Error);
+      throw ErrorHandler.createError(ErrorType.SETTINGS, '获取设置信息失败', error as Error);
     }
   }
 
@@ -128,26 +285,25 @@ export class DataProvider implements IDataProvider {
       const iconTheme = config.get<string>('workbench.iconTheme');
       const productIconTheme = config.get<string>('workbench.productIconTheme');
 
-      // 获取已安装的主题扩展
-      const themeExtensions = vscode.extensions.all
-        .filter((ext) => {
-          const contributes = ext.packageJSON.contributes;
-          return (
-            contributes &&
-            (contributes.themes || contributes.iconThemes || contributes.productIconThemes)
-          );
-        })
-        .map(
-          (ext): ThemeInfo => ({
-            id: ext.id,
-            name: ext.packageJSON.displayName || ext.packageJSON.name,
-            themes: ext.packageJSON.contributes?.themes || [],
-            iconThemes: ext.packageJSON.contributes?.iconThemes || [],
-            productIconThemes: ext.packageJSON.contributes?.productIconThemes || [],
-          }),
+      // 获取可用主题列表
+      const themeExtensions = vscode.extensions.all.filter((ext) => {
+        const contributes = ext.packageJSON.contributes;
+        return (
+          contributes &&
+          (contributes.themes || contributes.iconThemes || contributes.productIconThemes)
         );
+      });
 
-      logger.info(`收集到 ${themeExtensions.length} 个主题扩展`);
+      const available: ThemeInfo[] = themeExtensions.map((ext) => {
+        const contributes = ext.packageJSON.contributes || {};
+        return {
+          id: ext.id,
+          name: ext.packageJSON.displayName || ext.packageJSON.name,
+          themes: contributes.themes || [],
+          iconThemes: contributes.iconThemes || [],
+          productIconThemes: contributes.productIconThemes || [],
+        };
+      });
 
       return {
         current: {
@@ -155,11 +311,11 @@ export class DataProvider implements IDataProvider {
           iconTheme,
           productIconTheme,
         },
-        available: themeExtensions,
+        available,
         timestamp: new Date().toISOString(),
       };
     } catch (error) {
-      throw ErrorHandler.createError(ErrorType.CONFIGURATION, '获取主题信息失败', error as Error);
+      throw ErrorHandler.createError(ErrorType.THEMES, '获取主题信息失败', error as Error);
     }
   }
 
@@ -169,11 +325,11 @@ export class DataProvider implements IDataProvider {
 
       const snippets: Record<string, SnippetInfo> = {};
 
-      // 获取用户代码片段
-      await this.collectUserSnippets(snippets);
+      // 读取用户代码片段
+      await this.readUserSnippets(snippets);
 
-      // 获取工作区代码片段
-      await this.collectWorkspaceSnippets(snippets);
+      // 读取工作区代码片段
+      await this.readWorkspaceSnippets(snippets);
 
       logger.info(`收集到 ${Object.keys(snippets).length} 个代码片段文件`);
 
@@ -182,88 +338,196 @@ export class DataProvider implements IDataProvider {
         timestamp: new Date().toISOString(),
       };
     } catch (error) {
-      throw ErrorHandler.createError(ErrorType.FILE_SYSTEM, '获取代码片段信息失败', error as Error);
+      throw ErrorHandler.createError(ErrorType.SNIPPETS, '获取代码片段信息失败', error as Error);
     }
   }
 
-  private async collectUserSnippets(snippets: Record<string, SnippetInfo>): Promise<void> {
-    if (!fs.existsSync(this.userSnippetsPath)) {
-      logger.info('用户代码片段目录不存在');
-      return;
-    }
+  // 辅助方法
+  private async getExtensionStateInfo(): Promise<{ disabledExtensions: string[] }> {
+    try {
+      const extensionsJsonPath = getVSCodeExtensionsStateFilePath();
+      logger.info(`尝试读取扩展状态文件: ${extensionsJsonPath}`);
 
-    const files = fs.readdirSync(this.userSnippetsPath);
-    for (const file of files) {
-      if (file.endsWith('.code-snippets') || file.endsWith('.json')) {
-        const filePath = path.join(this.userSnippetsPath, file);
-        try {
-          const content = fs.readFileSync(filePath, 'utf8');
-          const ext = file.endsWith('.code-snippets') ? '.code-snippets' : '.json';
-          const language = path.basename(file, ext);
-          snippets[language] = { content, ext };
-        } catch (error) {
-          logger.warn(`读取用户代码片段文件失败: ${file}`);
-        }
+      if (fs.existsSync(extensionsJsonPath)) {
+        const extensionsData = JSON.parse(fs.readFileSync(extensionsJsonPath, 'utf8'));
+        const disabledExtensions = extensionsData.disabled || [];
+
+        logger.info(`从扩展状态文件中发现 ${disabledExtensions.length} 个禁用的扩展`);
+        return { disabledExtensions };
+      } else {
+        logger.info(`扩展状态文件不存在: ${extensionsJsonPath}`);
+        return { disabledExtensions: [] };
       }
+    } catch (error) {
+      logger.warn(`读取扩展状态文件失败: ${error}`);
+      return { disabledExtensions: [] };
     }
   }
 
-  private async collectWorkspaceSnippets(snippets: Record<string, SnippetInfo>): Promise<void> {
-    if (!vscode.workspace.workspaceFolders) {
-      return;
+  private async getExtensionsJsonData(): Promise<any[]> {
+    try {
+      const extensionsJsonPath = path.join(this.extensionsDirectory, 'extensions.json');
+      if (fs.existsSync(extensionsJsonPath)) {
+        const data = JSON.parse(fs.readFileSync(extensionsJsonPath, 'utf8'));
+        return Array.isArray(data) ? data : [];
+      }
+      return [];
+    } catch (error) {
+      logger.warn(`读取 extensions.json 失败: ${error}`);
+      return [];
     }
+  }
 
-    for (const folder of vscode.workspace.workspaceFolders) {
-      const workspaceSnippetsPath = path.join(folder.uri.fsPath, '.vscode', 'snippets');
-      if (!fs.existsSync(workspaceSnippetsPath)) {
-        continue;
+  private async getExtensionDataFromFileSystem(): Promise<{ id: string; directory: string }[]> {
+    try {
+      if (!fs.existsSync(this.extensionsDirectory)) {
+        logger.warn(`扩展目录不存在: ${this.extensionsDirectory}`);
+        return [];
       }
 
-      const files = fs.readdirSync(workspaceSnippetsPath);
-      for (const file of files) {
-        if (file.endsWith('.code-snippets') || file.endsWith('.json')) {
-          const filePath = path.join(workspaceSnippetsPath, file);
-          try {
-            const content = fs.readFileSync(filePath, 'utf8');
-            const ext = file.endsWith('.code-snippets') ? '.code-snippets' : '.json';
-            const language = `workspace-${path.basename(file, ext)}`;
-            snippets[language] = { content, ext };
-          } catch (error) {
-            logger.warn(`读取工作区代码片段文件失败: ${file}`);
+      const items = fs.readdirSync(this.extensionsDirectory);
+      const result: { id: string; directory: string }[] = [];
+      const ignoredExtensions = new Set<string>(); // 用于记录已经记录过的忽略扩展
+
+      for (const item of items) {
+        const itemPath = path.join(this.extensionsDirectory, item);
+        const stat = fs.statSync(itemPath);
+
+        if (stat.isDirectory()) {
+          // 扩展目录格式通常是 publisher.name-version
+          const match = item.match(/^(.+?)-(\d+\.\d+\.\d+.*)$/);
+          if (match) {
+            const extensionId = match[1];
+            if (isExtensionIgnored(extensionId)) {
+              // 只在第一次遇到被忽略的扩展时记录日志
+              if (!ignoredExtensions.has(extensionId)) {
+                logger.info(`跳过忽略的扩展: ${extensionId}`);
+                ignoredExtensions.add(extensionId);
+              }
+              continue;
+            }
+            result.push({
+              id: extensionId,
+              directory: item,
+            });
           }
         }
       }
+
+      // 如果有忽略的扩展，记录总结信息
+      if (ignoredExtensions.size > 0) {
+        logger.info(
+          `文件系统扫描完成，共忽略 ${ignoredExtensions.size} 个扩展: ${Array.from(ignoredExtensions).join(', ')}`,
+        );
+      }
+
+      return result;
+    } catch (error) {
+      logger.warn(`读取扩展目录失败: ${error}`);
+      return [];
     }
   }
 
-  private getUserSettings(): string | null {
+  private async readUserSnippets(snippets: Record<string, SnippetInfo>): Promise<void> {
+    try {
+      if (!fs.existsSync(this.userSnippetsPath)) {
+        return;
+      }
+
+      const files = fs.readdirSync(this.userSnippetsPath);
+      for (const file of files) {
+        if (file.endsWith('.json')) {
+          try {
+            const filePath = path.join(this.userSnippetsPath, file);
+            const content = fs.readFileSync(filePath, 'utf8');
+            const fileName = path.basename(file, '.json');
+
+            snippets[fileName] = {
+              content,
+              ext: '.json',
+            };
+          } catch (error) {
+            logger.warn(`读取用户代码片段文件失败: ${file}, ${error}`);
+          }
+        }
+      }
+    } catch (error) {
+      logger.warn(`读取用户代码片段目录失败: ${error}`);
+    }
+  }
+
+  private async readWorkspaceSnippets(snippets: Record<string, SnippetInfo>): Promise<void> {
+    try {
+      if (!vscode.workspace.workspaceFolders) {
+        return;
+      }
+
+      for (const workspaceFolder of vscode.workspace.workspaceFolders) {
+        const vscodeDir = path.join(workspaceFolder.uri.fsPath, VSCODE_FILE_NAMES.VSCODE_DIR);
+        const snippetsDir = path.join(vscodeDir, VSCODE_FILE_NAMES.SNIPPETS_DIR);
+
+        if (fs.existsSync(snippetsDir)) {
+          const files = fs.readdirSync(snippetsDir);
+          for (const file of files) {
+            if (file.endsWith('.json')) {
+              try {
+                const filePath = path.join(snippetsDir, file);
+                const content = fs.readFileSync(filePath, 'utf8');
+                const fileName = `workspace-${path.basename(file, '.json')}`;
+
+                snippets[fileName] = {
+                  content,
+                  ext: '.json',
+                };
+              } catch (error) {
+                logger.warn(`读取工作区代码片段文件失败: ${file}, ${error}`);
+              }
+            }
+          }
+        }
+      }
+    } catch (error) {
+      logger.warn(`读取工作区代码片段失败: ${error}`);
+    }
+  }
+
+  private async readUserSettings(): Promise<string | null> {
     try {
       if (fs.existsSync(this.userSettingsPath)) {
         return fs.readFileSync(this.userSettingsPath, 'utf8');
       }
+      return null;
     } catch (error) {
       logger.warn(`读取用户设置失败: ${error}`);
+      return null;
     }
-    return null;
   }
 
-  private getWorkspaceSettings(): string | null {
+  private async readWorkspaceSettings(): Promise<string | null> {
     try {
-      if (vscode.workspace.workspaceFolders) {
-        const workspaceFolder = vscode.workspace.workspaceFolders[0];
-        const settingsPath = path.join(workspaceFolder.uri.fsPath, '.vscode', 'settings.json');
-        if (fs.existsSync(settingsPath)) {
-          return fs.readFileSync(settingsPath, 'utf8');
-        }
+      if (!vscode.workspace.workspaceFolders) {
+        return null;
       }
+
+      const workspaceFolder = vscode.workspace.workspaceFolders[0];
+      const settingsPath = path.join(
+        workspaceFolder.uri.fsPath,
+        VSCODE_FILE_NAMES.VSCODE_DIR,
+        VSCODE_FILE_NAMES.USER_SETTINGS,
+      );
+
+      if (fs.existsSync(settingsPath)) {
+        return fs.readFileSync(settingsPath, 'utf8');
+      }
+      return null;
     } catch (error) {
       logger.warn(`读取工作区设置失败: ${error}`);
+      return null;
     }
-    return null;
   }
 
   private logEnvironmentInfo(): void {
-    logger.info('=== VSCode 环境信息 ===');
+    logger.info(`=== 环境信息 ===`);
     logger.info(`VSCode 发行版: ${this.vscodeEdition}`);
     logger.info(`操作系统平台: ${this.platform}`);
     logger.info(`便携模式: ${this.isPortable ? '是' : '否'}`);
@@ -272,29 +536,22 @@ export class DataProvider implements IDataProvider {
     logger.info(`扩展目录: ${this.extensionsDirectory}`);
     logger.info(`用户设置路径: ${this.userSettingsPath}`);
     logger.info(`用户代码片段路径: ${this.userSnippetsPath}`);
-    logger.info(`vscode.env.appRoot: ${vscode.env.appRoot}`);
-    logger.info(`vscode.env.appName: ${vscode.env.appName}`);
-
-    // 添加 Remote-SSH 特定信息
-    if (this.vscodeEdition === VSCodeEdition.REMOTE_SSH) {
-      logger.info('=== Remote-SSH 环境信息 ===');
-      logger.info(`VSCODE_AGENT_FOLDER: ${process.env['VSCODE_AGENT_FOLDER'] || '未设置'}`);
-      logger.info(`VSCODE_SSH_HOST: ${process.env['VSCODE_SSH_HOST'] || '未设置'}`);
-      logger.info(`REMOTE_SSH_EXTENSION: ${process.env['REMOTE_SSH_EXTENSION'] || '未设置'}`);
-      logger.info(
-        `Remote-SSH 扩展已安装: ${vscode.extensions.getExtension('ms-vscode-remote.remote-ssh') ? '是' : '否'}`,
-      );
-      logger.info('=== Remote-SSH 环境信息结束 ===');
-    }
-
-    logger.info('=== 环境信息结束 ===');
   }
 
+  // 公共方法供其他类使用
   public getUserSettingsPath(): string {
     return this.userSettingsPath;
   }
 
   public getUserSnippetsPath(): string {
     return this.userSnippetsPath;
+  }
+
+  public getExtensionsDirectory(): string {
+    return this.extensionsDirectory;
+  }
+
+  public getDataDirectory(): string {
+    return this.dataDirectory;
   }
 }
