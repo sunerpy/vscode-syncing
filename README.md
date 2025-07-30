@@ -74,15 +74,7 @@ The extension will automatically adapt to the remote server's file system and sy
 
 ## 📝 Changelog
 
-### 0.0.4
-
-- 🎉 Initial release
-- Support for settings and extension sync
-
-### 0.0.6
-
-- fix: optimize logic for detecting whether VSCode is in portable mode
-- Updated the way the VSCODE_PORTABLE environment variable is checked to ensure it's evaluated as a boolean, improving code readability and reliability.
+[Changelog](./CHANGELOG.md)
 
 ---
 

@@ -75,14 +75,7 @@ code --install-extension vscode-syncing
 
 ## 📝 更新日志
 
-### 0.0.4
-
-- 🎉 初始版本发布
-- 支持设置和插件列表的同步
-
-### 0.0.6
-
-- fix: 优化获取 VSCode 是否为便携版的逻辑
+[更新日志](./CHANGELOG.md)
 
 ---
 
