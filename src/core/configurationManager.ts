@@ -16,6 +16,7 @@ export interface SyncConfiguration {
   gistId?: string;
   repositoryName?: string;
   repositoryBranch?: string;
+  syncDisabledExtensions?: boolean;
 }
 
 export class ConfigurationManager implements IConfigurationProvider {
@@ -87,6 +88,7 @@ export class ConfigurationManager implements IConfigurationProvider {
       gistId: this.get<string>('gistId'),
       repositoryName: this.get<string>('repositoryName'),
       repositoryBranch: this.get<string>('repositoryBranch', 'main'),
+      syncDisabledExtensions: this.get<boolean>('syncDisabledExtensions', false),
     };
   }
 
