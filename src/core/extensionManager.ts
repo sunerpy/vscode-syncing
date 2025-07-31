@@ -413,6 +413,9 @@ export class ExtensionManager {
         logger.info(`开始下载扩展: ${extensionId} v${version}`);
         const downloadedExtension = await this.downloadExtension(extension);
 
+        // 检查并安装依赖扩展
+        await this.installExtensionDependencies(downloadedExtension);
+
         logger.info(`开始安装扩展: ${extensionId} v${version}`);
         await this.extractExtension(downloadedExtension);
 
@@ -420,7 +423,7 @@ export class ExtensionManager {
         await this.cleanupExtensionCache();
 
         // 禁用该扩展的自动更新
-        await this.disableExtensionAutoUpdate(extensionId);
+        // await this.disableExtensionAutoUpdate(extensionId);
 
         logger.info(`扩展安装成功: ${extensionId} v${version}`);
       } catch (downloadError) {
@@ -801,7 +804,7 @@ export class ExtensionManager {
       }
 
       // 禁用该扩展的自动更新
-      await this.disableExtensionAutoUpdate(extensionId);
+      // await this.disableExtensionAutoUpdate(extensionId);
 
       logger.info(`VSCode API安装扩展成功: ${extensionId}`);
     } catch (error) {
@@ -816,8 +819,18 @@ export class ExtensionManager {
     try {
       logger.info(`禁用扩展自动更新: ${extensionId}`);
 
-      // 获取当前的扩展自动更新设置
+      // 检查配置项是否存在
       const config = vscode.workspace.getConfiguration();
+      const configInspection = config.inspect('extensions.autoUpdate.ignoreList');
+
+      if (!configInspection) {
+        logger.warn(
+          `配置项 extensions.autoUpdate.ignoreList 不存在，跳过禁用自动更新: ${extensionId}`,
+        );
+        return;
+      }
+
+      // 获取当前的扩展自动更新设置
       const currentIgnoredExtensions = config.get<string[]>('extensions.autoUpdate.ignoreList', []);
 
       // 检查是否已经在忽略列表中
@@ -853,8 +866,16 @@ export class ExtensionManager {
 
       logger.info(`批量禁用扩展自动更新: ${extensionIds.length} 个扩展`);
 
-      // 获取当前的扩展自动更新设置
+      // 检查配置项是否存在
       const config = vscode.workspace.getConfiguration();
+      const configInspection = config.inspect('extensions.autoUpdate.ignoreList');
+
+      if (!configInspection) {
+        logger.warn(`配置项 extensions.autoUpdate.ignoreList 不存在，跳过批量禁用自动更新`);
+        return;
+      }
+
+      // 获取当前的扩展自动更新设置
       const currentIgnoredExtensions = config.get<string[]>('extensions.autoUpdate.ignoreList', []);
 
       // 找出需要添加的扩展
@@ -880,5 +901,135 @@ export class ExtensionManager {
     } catch (error) {
       logger.warn(`批量禁用扩展自动更新失败, 错误: ${(error as Error).message}`);
     }
+  }
+
+  /**
+   * 安装扩展依赖
+   */
+  private async installExtensionDependencies(extension: ExtensionInfo): Promise<void> {
+    try {
+      if (!extension.vsixFilepath || !fs.existsSync(extension.vsixFilepath)) {
+        logger.debug(`跳过依赖检查，VSIX文件不存在: ${extension.id}`);
+        return;
+      }
+
+      logger.info(`检查扩展依赖: ${extension.id}`);
+
+      // 解析扩展的 package.json 来获取依赖信息
+      const dependencies = await this.parseExtensionDependencies(extension.vsixFilepath);
+
+      if (dependencies.length === 0) {
+        logger.debug(`扩展 ${extension.id} 没有依赖`);
+        return;
+      }
+
+      logger.info(`发现 ${dependencies.length} 个依赖扩展: ${dependencies.join(', ')}`);
+
+      // 检查哪些依赖扩展尚未安装
+      const missingDependencies = dependencies.filter((depId) => {
+        const depExtension = vscode.extensions.getExtension(depId);
+        return !depExtension;
+      });
+
+      if (missingDependencies.length === 0) {
+        logger.info(`所有依赖扩展都已安装`);
+        return;
+      }
+
+      logger.info(
+        `需要安装 ${missingDependencies.length} 个依赖扩展: ${missingDependencies.join(', ')}`,
+      );
+
+      // 安装缺失的依赖扩展
+      for (const depId of missingDependencies) {
+        try {
+          logger.info(`安装依赖扩展: ${depId}`);
+          await this.installExtensionViaAPI(depId);
+          logger.info(`依赖扩展安装成功: ${depId}`);
+        } catch (error) {
+          logger.warn(`依赖扩展安装失败: ${depId}, 错误: ${(error as Error).message}`);
+          // 依赖安装失败不应该阻止主扩展的安装，只记录警告
+        }
+      }
+    } catch (error) {
+      logger.warn(`检查扩展依赖失败: ${extension.id}, 错误: ${(error as Error).message}`);
+      // 依赖检查失败不应该阻止主扩展的安装
+    }
+  }
+
+  /**
+   * 解析扩展的依赖信息
+   */
+  private async parseExtensionDependencies(vsixFilePath: string): Promise<string[]> {
+    const yauzl = require('yauzl');
+
+    return new Promise((resolve, reject) => {
+      yauzl.open(vsixFilePath, { lazyEntries: true }, (err: any, zipfile: any) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+
+        let packageJsonFound = false;
+
+        zipfile.readEntry();
+
+        zipfile.on('entry', (entry: any) => {
+          if (entry.fileName === 'extension/package.json') {
+            packageJsonFound = true;
+
+            zipfile.openReadStream(entry, (err: any, readStream: any) => {
+              if (err) {
+                reject(err);
+                return;
+              }
+
+              let packageJsonContent = '';
+              readStream.on('data', (chunk: Buffer) => {
+                packageJsonContent += chunk.toString();
+              });
+
+              readStream.on('end', () => {
+                try {
+                  const packageJson = JSON.parse(packageJsonContent);
+                  const dependencies: string[] = [];
+
+                  // 检查 extensionDependencies 字段
+                  if (
+                    packageJson.extensionDependencies &&
+                    Array.isArray(packageJson.extensionDependencies)
+                  ) {
+                    dependencies.push(...packageJson.extensionDependencies);
+                  }
+
+                  // 检查 extensionPack 字段（扩展包）
+                  if (packageJson.extensionPack && Array.isArray(packageJson.extensionPack)) {
+                    dependencies.push(...packageJson.extensionPack);
+                  }
+
+                  // 去重并返回
+                  const uniqueDependencies = [...new Set(dependencies)];
+                  resolve(uniqueDependencies);
+                } catch (parseError) {
+                  reject(new Error(`解析 package.json 失败: ${(parseError as Error).message}`));
+                }
+              });
+
+              readStream.on('error', reject);
+            });
+          } else {
+            zipfile.readEntry();
+          }
+        });
+
+        zipfile.on('end', () => {
+          if (!packageJsonFound) {
+            resolve([]); // 没有找到 package.json，返回空数组
+          }
+        });
+
+        zipfile.on('error', reject);
+      });
+    });
   }
 }

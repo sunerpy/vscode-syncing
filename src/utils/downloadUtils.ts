@@ -248,7 +248,7 @@ export async function downloadFileAdvanced(
           // 处理重定向
           const redirectUrl = response.headers.location;
           if (redirectUrl !== undefined) {
-            logger.info(`重定向到: ${redirectUrl} (${redirectCount + 1}/${maxRedirects})`);
+            logger.debug(`重定向到: ${redirectUrl} (${redirectCount + 1}/${maxRedirects})`);
             downloadWithRedirect(redirectUrl, redirectCount + 1);
           } else {
             reject(new Error('重定向但未提供新URL'));
@@ -294,7 +294,7 @@ export async function downloadExtensionVsix(
 
   // 尝试多个可能的下载URL
   const downloadUrls = [
-    `https://marketplace.visualstudio.com/_apis/public/gallery/publishers/${publisher}/vsextensions/${name}/${version}/vspackage`,
+    // `https://marketplace.visualstudio.com/_apis/public/gallery/publishers/${publisher}/vsextensions/${name}/${version}/vspackage`,
     `https://${publisher}.gallery.vsassets.io/_apis/public/gallery/publisher/${publisher}/extension/${name}/${version}/assetbyname/Microsoft.VisualStudio.Services.VSIXPackage`,
   ];
 
