@@ -4,6 +4,13 @@ All notable changes to the "vscode-syncing" extension will be documented in this
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.3.1](https://github.com/sunerpy/vscode-syncing/compare/v0.3.0...v0.3.1) (2025-07-31)
+
+
+### Bug Fixes
+
+* **extensionManager:** 修复扩展依赖安装和自动更新配置兼容性问题 ([#31](https://github.com/sunerpy/vscode-syncing/issues/31)) ([b768b22](https://github.com/sunerpy/vscode-syncing/commit/b768b2280f24f905db9d7e5eca6ab5f2745c6438))
+
 ## [0.3.0](https://github.com/sunerpy/vscode-syncing/compare/v0.2.4...v0.3.0) (2025-07-31)
 
 
