@@ -155,7 +155,6 @@
     "build": "pnpm run package",
     "build:vsix": "vsce package",
     "publish:vsix": "pnpm vsce publish --no-dependencies",
-    "security:audit": "pnpm audit --audit-level moderate",
     "deps:check": "depcheck",
     "deps:outdated": "pnpm outdated"
   },

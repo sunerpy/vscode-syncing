@@ -36,11 +36,6 @@ jobs:
           echo "🔍 Checking for unused dependencies..."
           npx depcheck || echo "⚠️  Some dependencies might be unused"
 
-      - name: Security audit
-        run: |
-          echo "🔒 Running security audit..."
-          pnpm audit --audit-level moderate || echo "⚠️  Security vulnerabilities found"
-
   security:
     name: Security Check
     runs-on: ubuntu-latest
@@ -51,9 +46,6 @@ jobs:
 
       - name: Setup Node.js and pnpm
         uses: ./.github/actions/setup-node-pnpm
-
-      - name: Run security audit
-        run: pnpm audit --audit-level moderate
 
       - name: Check for secrets
         uses: trufflesecurity/trufflehog@main

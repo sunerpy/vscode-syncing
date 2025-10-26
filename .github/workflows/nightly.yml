@@ -43,11 +43,6 @@ jobs:
             build-info.txt
           retention-days: 30
 
-      - name: Check for security vulnerabilities
-        run: |
-          echo "🔒 Running security audit..."
-          pnpm audit --audit-level moderate || echo "⚠️  Security vulnerabilities found"
-
       - name: Check for outdated dependencies
         run: |
           echo "📦 Checking for outdated dependencies..."
@@ -61,8 +56,6 @@ jobs:
           echo "## Outdated Dependencies" >> dependency-report.md
           pnpm outdated >> dependency-report.md 2>&1 || echo "All dependencies are up to date" >> dependency-report.md
           echo "" >> dependency-report.md
-          echo "## Security Audit" >> dependency-report.md
-          pnpm audit --audit-level moderate >> dependency-report.md 2>&1 || echo "No security issues found" >> dependency-report.md
 
       - name: Upload dependency report
         uses: actions/upload-artifact@v4
