@@ -7,6 +7,7 @@ import { ErrorHandler, ErrorType } from './errorHandler';
 import { logger } from './logger';
 import { ExtensionImportResult } from './reportManager';
 import { isExtensionIgnored } from '../types/constants';
+import { getVSCodeExtensionsDirectory } from '../utils/vscodeEnvironment';
 
 export interface ExtensionComparisonResult {
   id: string;
@@ -347,21 +348,22 @@ export class ExtensionManager {
    * 获取扩展目录
    */
   private getExtensionsDirectory(): string {
-    if (process.env.VSCODE_PORTABLE) {
-      return path.join(process.env.VSCODE_PORTABLE, 'data', 'extensions');
+    // 方法1: 从已安装的扩展路径推断扩展目录
+    const installedExtensions = vscode.extensions.all.filter((ext) => !ext.packageJSON.isBuiltin);
+
+    if (installedExtensions.length > 0) {
+      // 获取第一个非内置扩展的路径
+      const firstExtPath = installedExtensions[0].extensionPath;
+      // 扩展路径格式: /path/to/extensions/publisher.name-version
+      // 我们需要获取 extensions 目录
+      const extensionsDir = path.dirname(firstExtPath);
+      logger.debug(`从已安装扩展推断扩展目录: ${extensionsDir}`);
+      return extensionsDir;
     }
 
-    const platform = os.platform();
-    const homeDir = os.homedir();
-
-    switch (platform) {
-      case 'win32':
-      case 'darwin':
-      case 'linux':
-        return path.join(homeDir, '.vscode', 'extensions');
-      default:
-        return path.join(homeDir, '.vscode', 'extensions');
-    }
+    // 方法2: 如果没有已安装的扩展，使用 vscodeEnvironment 工具函数作为后备
+    logger.debug('没有找到已安装的扩展，使用后备方法获取扩展目录');
+    return getVSCodeExtensionsDirectory();
   }
 
   /**
