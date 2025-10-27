@@ -34,7 +34,7 @@ jobs:
           echo "pnpm Version: $(pnpm --version)" >> build-info.txt
 
       - name: Upload nightly build
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: vscode-syncing-nightly-${{ github.sha }}
           path: |
@@ -58,7 +58,7 @@ jobs:
           echo "" >> dependency-report.md
 
       - name: Upload dependency report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: dependency-report-${{ github.sha }}
           path: dependency-report.md
